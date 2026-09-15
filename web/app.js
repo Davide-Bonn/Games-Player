@@ -507,7 +507,7 @@ class DinoGame{
       ctx.beginPath();ctx.arc(rx,ry,16,0,Math.PI*1.5);ctx.stroke();
       ctx.fillStyle=FG;ctx.beginPath();ctx.moveTo(rx,ry-18);ctx.lineTo(rx+8,ry-12);ctx.lineTo(rx,ry-6);ctx.fill();
       ctx.fillStyle="#98989f";ctx.font="14px 'Courier New',monospace";
-      ctx.fillText("ENTER to restart | ESC to quit",W/2,H/2+50);
+      ctx.fillText("ENTER to restart | ESC to close",W/2,H/2+50);
       ctx.textAlign="left";
     }
     // Waiting to start
@@ -549,8 +549,8 @@ class SubwayGame{
     if(this.gameOver){if(this._restartPressed){this.reset();this._restartPressed=false;}return;}
     while(gameActions.length){
       const a=gameActions.shift();
-      if(a==="UP"&&!this.jumping&&!this.sliding){this.jumping=true;this.vy=-15;}
-      if(a==="DOWN"&&!this.jumping&&!this.sliding){this.sliding=true;this.slideTmr=30;}
+      if((a==="UP"||a==="JUMP")&&!this.jumping&&!this.sliding){this.jumping=true;this.vy=-15;}
+      if((a==="DOWN"||a==="SLIDE")&&!this.jumping&&!this.sliding){this.sliding=true;this.slideTmr=30;}
       if(a==="LEFT"&&this.lane>0) this.lane--;
       if(a==="RIGHT"&&this.lane<2) this.lane++;
     }
@@ -643,7 +643,7 @@ class SubwayGame{
       ctx.fillStyle="rgba(0,0,0,0.55)";ctx.fillRect(0,0,W,H);
       ctx.textAlign="center";ctx.fillStyle="#ff375f";ctx.font="bold 36px -apple-system,Segoe UI,sans-serif";ctx.fillText("GAME OVER",W/2,H/2-40);
       ctx.fillStyle="#fff";ctx.font="bold 24px -apple-system,Segoe UI,sans-serif";ctx.fillText(`Score: ${this.score}`,W/2,H/2+5);
-      ctx.fillStyle="#98989f";ctx.font="16px -apple-system,Segoe UI,sans-serif";ctx.fillText("Press ENTER to restart | ESC to quit",W/2,H/2+40);
+      ctx.fillStyle="#98989f";ctx.font="16px -apple-system,Segoe UI,sans-serif";ctx.fillText("Press ENTER to restart | ESC to close",W/2,H/2+40);
       ctx.textAlign="left";
     }
   }
