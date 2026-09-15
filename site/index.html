@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Scanline overlay -->
+  <div class="scanlines" aria-hidden="true"></div>
+  <!-- Ambient glow blobs -->
+  <div class="glow-orb orb-1" aria-hidden="true"></div>
+  <div class="glow-orb orb-2" aria-hidden="true"></div>
+
+  <!-- ── MENU SCREEN ── -->
+  <div id="menu-screen" class="screen active">
+    <header class="main-header">
+      <div class="logo-group">
+        <div class="logo-icon">
+          <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
+            <rect x="2" y="8" width="32" height="20" rx="4" stroke="currentColor" stroke-width="2.5"/>
+            <circle cx="12" cy="18" r="4" fill="currentColor"/>
+            <rect x="22" y="14" width="3" height="3" rx="1" fill="currentColor"/>
+            <rect x="27" y="14" width="3" height="3" rx="1" fill="currentColor"/>
+            <rect x="22" y="19" width="3" height="3" rx="1" fill="currentColor"/>
+            <rect x="27" y="19" width="3" height="3" rx="1" fill="currentColor"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="logo-text">Games<span class="logo-accent">Player</span></h1>
+          <p class="tagline">gesture-controlled arcade</p>
+        </div>
+      </div>
+      <nav class="header-nav">
+        <button class="nav-btn" onclick="showScreen('settings')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
+          Settings
+        </button>
+        <button class="nav-btn nav-btn--accent" onclick="showScreen('tutorial')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Tutorial
+        </button>
+      </nav>
+    </header>
+
+    <div class="games-grid">
+      <div class="game-card" data-game="dino">
+        <div class="card-glow card-glow--cyan"></div>
+        <div class="card-badge">CLASSIC</div>
+        <div class="card-art card-art--dino">
+          <svg viewBox="0 0 120 80" fill="none" class="card-illustration">
+            <!-- Stylized T-Rex silhouette -->
+            <rect x="60" y="10" width="22" height="14" rx="2" fill="currentColor"/>
+            <rect x="56" y="22" width="18" height="24" rx="2" fill="currentColor"/>
+            <rect x="50" y="30" width="8" height="6" fill="currentColor"/>
+            <rect x="60" y="46" width="6" height="14" fill="currentColor"/>
+            <rect x="70" y="46" width="6" height="14" fill="currentColor"/>
+            <rect x="76" y="14" width="8" height="4" fill="currentColor" opacity="0.5"/>
+            <!-- Cacti -->
+            <rect x="20" y="38" width="4" height="22" rx="1" fill="currentColor" opacity="0.3"/>
+            <rect x="16" y="44" width="4" height="10" rx="1" fill="currentColor" opacity="0.3"/>
+            <rect x="100" y="42" width="4" height="18" rx="1" fill="currentColor" opacity="0.3"/>
+            <!-- Ground -->
+            <rect x="0" y="62" width="120" height="2" fill="currentColor" opacity="0.2"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Dino Runner</h2>
+          <p class="card-desc">Jump over cacti and dodge pterodactyls in this Chrome-style classic</p>
+          <div class="card-actions">
+            <button class="btn btn--ghost" onclick="startGame('dino', false)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="2" y="18" width="20" height="2" rx="1"/></svg>
+              Keyboard
+            </button>
+            <button class="btn btn--primary btn--cyan" onclick="startGame('dino', true)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Camera + KB
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="game-card" data-game="subway">
+        <div class="card-glow card-glow--magenta"></div>
+        <div class="card-badge">ENDLESS</div>
+        <div class="card-art card-art--subway">
+          <svg viewBox="0 0 120 80" fill="none" class="card-illustration">
+            <!-- Stylized runner -->
+            <circle cx="60" cy="18" r="8" fill="currentColor"/>
+            <rect x="54" y="26" width="12" height="20" rx="3" fill="currentColor"/>
+            <rect x="54" y="46" width="5" height="14" rx="2" fill="currentColor"/>
+            <rect x="62" y="46" width="5" height="14" rx="2" fill="currentColor"/>
+            <!-- Lanes -->
+            <line x1="40" y1="0" x2="40" y2="80" stroke="currentColor" stroke-width="1" opacity="0.15" stroke-dasharray="6 4"/>
+            <line x1="80" y1="0" x2="80" y2="80" stroke="currentColor" stroke-width="1" opacity="0.15" stroke-dasharray="6 4"/>
+            <!-- Train -->
+            <rect x="10" y="30" width="18" height="35" rx="3" fill="currentColor" opacity="0.2"/>
+            <rect x="92" y="20" width="18" height="40" rx="3" fill="currentColor" opacity="0.2"/>
+          </svg>
+        </div>
+        <div class="card-content">
+          <h2 class="card-title">Subway Runner</h2>
+          <p class="card-desc">Dodge trains and barriers in this endless 3-lane graffiti runner</p>
+          <div class="card-actions">
+            <button class="btn btn--ghost" onclick="startGame('subway', false)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/><rect x="2" y="18" width="20" height="2" rx="1"/></svg>
+              Keyboard
+            </button>
+            <button class="btn btn--primary btn--magenta" onclick="startGame('subway', true)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              Camera + KB
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="gesture-strip" id="gesture-preview"></div>
+
+    <footer class="main-footer">
+      <span class="footer-dot"></span>
+      Works in any modern browser with webcam access
+    </footer>
+  </div>
+
+  <!-- ── SETTINGS SCREEN ── -->
+  <div id="settings-screen" class="screen">
+    <header class="sub-header">
+      <button class="back-btn" onclick="showScreen('menu')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div>
+        <h1 class="sub-title">Gesture Settings</h1>
+        <p class="sub-tagline">Click an action to cycle through mappings</p>
+      </div>
+      <div class="sub-header-spacer"></div>
+    </header>
+    <div class="settings-list" id="settings-list"></div>
+    <div class="settings-bar">
+      <button class="btn btn--primary btn--cyan" onclick="saveConfig()">Save Changes</button>
+      <button class="btn btn--ghost" onclick="resetConfig()">Reset Defaults</button>
+    </div>
+  </div>
+
+  <!-- ── TUTORIAL SCREEN ── -->
+  <div id="tutorial-screen" class="screen">
+    <header class="sub-header">
+      <button class="back-btn" onclick="endTutorial()">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      </button>
+      <div>
+        <h1 class="sub-title">Tutorial</h1>
+        <p class="sub-tagline" id="tut-step-label">Step 1 of 7</p>
+      </div>
+      <div class="sub-header-spacer"></div>
+    </header>
+    <div class="tutorial-dots" id="tut-dots"></div>
+    <div class="tutorial-content">
+      <div class="tutorial-cam">
+        <video id="tut-video" autoplay playsinline muted></video>
+        <canvas id="tut-overlay"></canvas>
+        <div class="cam-label">LIVE FEED</div>
+      </div>
+      <div class="tutorial-info">
+        <canvas id="tut-icon" width="100" height="100"></canvas>
+        <h2 id="tut-gesture-name" class="tut-name"></h2>
+        <p id="tut-gesture-action" class="tut-action"></p>
+        <p id="tut-gesture-desc" class="tut-desc"></p>
+        <div id="tut-status" class="status-badge">
+          <span class="status-dot"></span>
+          <span class="status-text">Try the gesture now...</span>
+        </div>
+        <div class="tip-box" id="tut-tip"></div>
+      </div>
+    </div>
+    <div class="tutorial-nav">
+      <button class="btn btn--ghost" id="tut-prev" onclick="tutPrev()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Previous
+      </button>
+      <button class="btn btn--primary btn--cyan" id="tut-next" onclick="tutNext()">
+        Next
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── GAME SCREEN ── -->
+  <div id="game-screen" class="screen">
+    <canvas id="game-canvas"></canvas>
+    <div class="game-cam-panel" id="game-cam-panel">
+      <video id="game-video" autoplay playsinline muted></video>
+      <div class="gesture-indicators" id="gesture-indicators"></div>
+    </div>
+    <button class="exit-btn" onclick="exitGame()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      Menu
+    </button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>
