@@ -6,19 +6,19 @@ Camera-controlled gaming platform using hand gestures and facial expressions. Pl
 
 Chrome T-Rex style side-scroller. Jump over cacti and dodge pterodactyls.
 
-![Dino Runner](dino.gif)
+![Dino Runner](assets/dino.gif)
 
 ## Subway Runner
 
 Dodge trains and barriers in this endless 3-lane runner with a street-art aesthetic.
 
-![Subway Runner](subway.gif)
+![Subway Runner](assets/subway.gif)
 
 ## Settings
 
 Customize which gestures map to which game actions. Supports hand pinches, eye blinks, and mouth open/close.
 
-![Settings](Settings_main.gif)
+![Settings](assets/settings.gif)
 
 ## Controls
 

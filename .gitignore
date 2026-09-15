@@ -9,3 +9,7 @@ dist/
 build/
 .env
 node_modules/
+# Original large GIFs (compressed versions in assets/)
+/dino.gif
+/subway.gif
+/Settings_main.gif
