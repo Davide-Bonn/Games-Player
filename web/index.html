@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Games Player</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- ── MENU SCREEN ── -->
+  <div id="menu-screen" class="screen active">
+    <header>
+      <div>
+        <h1>Games Player</h1>
+        <p class="subtitle">Camera-controlled gaming</p>
+      </div>
+      <div class="header-btns">
+        <button class="pill" onclick="showScreen('settings')">Settings</button>
+        <button class="pill" onclick="showScreen('tutorial')">Tutorial</button>
+      </div>
+    </header>
+
+    <div class="cards">
+      <div class="card">
+        <div class="card-bar" style="background: #5856d6;"></div>
+        <h2>Dino Runner</h2>
+        <p>Jump over cacti and dodge birds in this side-scrolling classic</p>
+        <div class="card-btns">
+          <button class="pill secondary" onclick="startGame('dino', false)">Keyboard</button>
+          <button class="pill accent-purple" onclick="startGame('dino', true)">Keyboard + Camera</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-bar" style="background: #34c759;"></div>
+        <h2>Subway Runner</h2>
+        <p>Dodge trains and barriers in this endless 3-lane runner</p>
+        <div class="card-btns">
+          <button class="pill secondary" onclick="startGame('subway', false)">Keyboard</button>
+          <button class="pill accent-green" onclick="startGame('subway', true)">Keyboard + Camera</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="gesture-preview" id="gesture-preview"></div>
+    <p class="footer-text">Works in any modern browser with webcam access</p>
+  </div>
+
+  <!-- ── SETTINGS SCREEN ── -->
+  <div id="settings-screen" class="screen">
+    <header>
+      <button class="pill" onclick="showScreen('menu')">&#8592; Back</button>
+      <div>
+        <h1>Gesture Settings</h1>
+        <p class="subtitle">Click an action to cycle through options</p>
+      </div>
+      <div></div>
+    </header>
+    <div class="settings-list" id="settings-list"></div>
+    <div class="settings-actions">
+      <button class="pill accent" onclick="saveConfig()">Save</button>
+      <button class="pill secondary" onclick="resetConfig()">Reset Defaults</button>
+    </div>
+  </div>
+
+  <!-- ── TUTORIAL SCREEN ── -->
+  <div id="tutorial-screen" class="screen">
+    <header>
+      <button class="pill" onclick="endTutorial()">&#8592; Back</button>
+      <div>
+        <h1>Tutorial</h1>
+        <p class="subtitle" id="tut-step-label">Step 1 of 7</p>
+      </div>
+      <div></div>
+    </header>
+    <div class="tutorial-dots" id="tut-dots"></div>
+    <div class="tutorial-content">
+      <div class="tutorial-cam">
+        <video id="tut-video" autoplay playsinline muted></video>
+        <canvas id="tut-overlay"></canvas>
+      </div>
+      <div class="tutorial-info">
+        <canvas id="tut-icon" width="100" height="100"></canvas>
+        <h2 id="tut-gesture-name"></h2>
+        <p id="tut-gesture-action" class="accent-text"></p>
+        <p id="tut-gesture-desc" class="desc-text"></p>
+        <div id="tut-status" class="status">
+          <span class="status-dot"></span>
+          <span class="status-text">Try the gesture now...</span>
+        </div>
+        <div class="tip-box" id="tut-tip"></div>
+      </div>
+    </div>
+    <div class="tutorial-nav">
+      <button class="pill secondary" id="tut-prev" onclick="tutPrev()">&#8592; Previous</button>
+      <button class="pill accent" id="tut-next" onclick="tutNext()">Next &#8594;</button>
+    </div>
+  </div>
+
+  <!-- ── GAME SCREEN ── -->
+  <div id="game-screen" class="screen">
+    <canvas id="game-canvas"></canvas>
+    <div class="game-cam-panel" id="game-cam-panel">
+      <video id="game-video" autoplay playsinline muted></video>
+      <div class="gesture-indicators" id="gesture-indicators"></div>
+    </div>
+    <button class="pill game-back" onclick="exitGame()">&#8592; Menu</button>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
+  <script src="app.js"></script>
+</body>
+</html>

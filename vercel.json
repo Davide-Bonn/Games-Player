@@ -1,0 +1,14 @@
+{
+  "outputDirectory": "web",
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/" }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "Permissions-Policy", "value": "camera=self" }
+      ]
+    }
+  ]
+}
