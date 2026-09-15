@@ -83,14 +83,18 @@ body {
 }
 
 /* ── Screens ── */
+html, body { height: 100%; }
 .screen {
   display: none;
   flex-direction: column;
   height: 100vh;
-  padding: 28px 36px;
+  max-height: 100vh;
+  padding: 24px 32px;
   position: relative;
   z-index: 1;
   animation: screenIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .screen.active { display: flex; }
 @keyframes screenIn {
@@ -482,20 +486,25 @@ body {
 }
 .dot.done { background: var(--cyan-dim); }
 
+#tutorial-screen {
+  overflow: hidden;
+}
 .tutorial-content {
   display: flex;
   gap: 28px;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 .tutorial-cam {
-  width: 380px;
+  width: 340px;
   flex-shrink: 0;
   position: relative;
   background: var(--bg2);
   border: 1.5px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
+  max-height: 100%;
 }
 .tutorial-cam video {
   width: 100%; height: 100%;
@@ -527,7 +536,9 @@ body {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
 }
 .tutorial-info canvas {
   border-radius: 8px;
@@ -605,11 +616,15 @@ body {
 #game-screen {
   padding: 0;
   flex-direction: row;
+  overflow: hidden;
 }
 #game-canvas {
   flex: 1;
   display: block;
   background: var(--bg2);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
 }
 .game-cam-panel {
   width: 260px;

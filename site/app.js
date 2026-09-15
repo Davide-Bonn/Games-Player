@@ -47,6 +47,7 @@ let mouthWasOpen = false;
 let cooldowns = {};
 const COOLDOWN_MS = 400;
 const ACTIVE_MS = 500;
+let detectLoopId = 0;  // Track which loop is active
 
 function getActiveGestures(){
   const now = Date.now();
@@ -68,14 +69,20 @@ function emitGesture(gesture){
 
 async function initCamera(videoEl){
   try{
+    // Stop existing stream first
+    if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());}
     cameraStream = await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:640,height:480}});
     videoEl.srcObject = cameraStream;
     await videoEl.play();
-  } catch(e){console.warn("Camera not available:",e);}
+    return true;
+  } catch(e){console.warn("Camera not available:",e); return false;}
 }
 
 function stopCamera(){
+  detectLoopId++;  // Kill any running detect loop
   if(cameraStream){cameraStream.getTracks().forEach(t=>t.stop());cameraStream=null;}
+  handsDetector=null;
+  faceMeshDetector=null;
 }
 
 async function initDetectors(videoEl){
@@ -93,25 +100,32 @@ async function initDetectors(videoEl){
   faceMeshDetector.setOptions({maxNumFaces:1,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
   faceMeshDetector.onResults(onFaceResults);
 
-  // Start detection loop
-  detectLoop(videoEl);
+  // Start detection loop with ID tracking
+  detectLoopId++;
+  detectLoop(videoEl, detectLoopId);
 }
 
-async function detectLoop(videoEl){
-  if(!cameraStream) return;
+async function detectLoop(videoEl, loopId){
+  // Stop if this loop was superseded or camera stopped
+  if(loopId !== detectLoopId || !cameraStream) return;
   try{
     if(handsDetector && videoEl.readyState>=2) await handsDetector.send({image:videoEl});
     if(faceMeshDetector && videoEl.readyState>=2) await faceMeshDetector.send({image:videoEl});
   }catch(e){}
-  requestAnimationFrame(()=>detectLoop(videoEl));
+  if(loopId === detectLoopId){
+    requestAnimationFrame(()=>detectLoop(videoEl, loopId));
+  }
 }
 
 function onHandResults(results){
   if(!results.multiHandLandmarks||!results.multiHandLandmarks.length) return;
   const lm = results.multiHandLandmarks[0];
-  const thumbY=lm[4].y, indexY=lm[8].y, middleY=lm[12].y;
-  if(Math.abs(thumbY-indexY)<0.045) emitGesture("pinch_index");
-  if(Math.abs(thumbY-middleY)<0.045) emitGesture("pinch_middle");
+  const thumb=lm[4], index=lm[8], middle=lm[12];
+  // Use distance (not just Y) for more reliable pinch detection
+  const idist=Math.sqrt((thumb.x-index.x)**2+(thumb.y-index.y)**2);
+  const mdist=Math.sqrt((thumb.x-middle.x)**2+(thumb.y-middle.y)**2);
+  if(idist<0.06) emitGesture("pinch_index");
+  if(mdist<0.06) emitGesture("pinch_middle");
 }
 
 function onFaceResults(results){
@@ -185,12 +199,17 @@ function renderGesturePreview(){
 let tutStep=0;
 let tutCamActive=false;
 
+const ARROW_LEFT='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>';
+const ARROW_RIGHT='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M12 5l7 7-7 7"/></svg>';
+
 function startTutorial(){
   tutStep=0;
   renderTutStep();
   const vid=document.getElementById("tut-video");
   if(!tutCamActive){
-    initCamera(vid).then(()=>{initDetectors(vid);tutCamActive=true;});
+    initCamera(vid).then(ok=>{
+      if(ok){initDetectors(vid);tutCamActive=true;}
+    });
   }
   gestureCallbacks.push(onTutGesture);
 }
@@ -236,11 +255,16 @@ function renderTutStep(){
     dots.appendChild(d);
   }
 
-  // Nav buttons
+  // Nav buttons - use correct classes for new UI
   document.getElementById("tut-prev").style.visibility=tutStep>0?"visible":"hidden";
   const next=document.getElementById("tut-next");
-  next.textContent=tutStep<GESTURE_LIST.length-1?"Next →":"Done";
-  next.className=tutStep<GESTURE_LIST.length-1?"pill accent":"pill accent-green";
+  if(tutStep<GESTURE_LIST.length-1){
+    next.innerHTML=`Next ${ARROW_RIGHT}`;
+    next.className="btn btn--primary btn--cyan";
+  } else {
+    next.innerHTML=`Done`;
+    next.className="btn btn--primary btn--cyan";
+  }
 
   // Icon
   drawGestureIconCanvas(document.getElementById("tut-icon"), g, true);
@@ -307,23 +331,32 @@ function startGame(type, cam){
   if(cam){
     panel.classList.remove("hidden");
     const vid=document.getElementById("game-video");
-    initCamera(vid).then(()=>initDetectors(vid));
+    // Stop tutorial camera if running, start fresh for game
+    stopCamera();
+    tutCamActive=false;
+    initCamera(vid).then(ok=>{if(ok) initDetectors(vid);});
     renderIndicators();
   } else {
     panel.classList.add("hidden");
   }
 
   gameRunning=true;
+  gestureCallbacks=[];  // Clear all old callbacks
   gestureCallbacks.push(onGameGesture);
-  if(type==="dino") currentGame=new DinoGame(canvas);
-  else currentGame=new SubwayGame(canvas);
-  currentGame.start();
+
+  // Delay game init slightly so the screen is visible and canvas has dimensions
+  requestAnimationFrame(()=>{
+    if(type==="dino") currentGame=new DinoGame(canvas);
+    else currentGame=new SubwayGame(canvas);
+    currentGame.start();
+  });
 }
 
 function exitGame(){
   gameRunning=false;
   gestureCallbacks=gestureCallbacks.filter(c=>c!==onGameGesture);
   if(currentGame){currentGame.stop();currentGame=null;}
+  if(useCamera){stopCamera();}
   showScreen("menu");
 }
 
@@ -332,13 +365,13 @@ function onGameGesture(action){gameActions.push(action);}
 
 function renderIndicators(){
   const el=document.getElementById("gesture-indicators");
-  el.innerHTML="<div style='font-size:12px;color:var(--text3);margin-bottom:4px'>GESTURES</div>";
+  el.innerHTML="<div style='font-size:11px;color:var(--text3);margin-bottom:4px;letter-spacing:1px'>GESTURES</div>";
   GESTURE_LIST.forEach(g=>{
     const a=config[g];
     if(!a||a==="NONE") return;
     const div=document.createElement("div");
     div.className="indicator";div.id=`ind-${g}`;
-    div.innerHTML=`<span class="ind-dot"></span>${GESTURE_LABELS[g]} → ${ACTION_LABELS[a]}`;
+    div.innerHTML=`<span class="ind-dot"></span>${GESTURE_LABELS[g]} &rarr; ${ACTION_LABELS[a]}`;
     el.appendChild(div);
   });
 }
@@ -357,10 +390,12 @@ class DinoGame{
     this.resize();this.frameId=null;
     this.hiScore=parseInt(localStorage.getItem("dino_hi"))||0;
     this.reset();
+    this._onResize=()=>{this.resize();};
+    window.addEventListener("resize",this._onResize);
   }
   resize(){
-    this.canvas.width=this.canvas.clientWidth;
-    this.canvas.height=this.canvas.clientHeight;
+    this.canvas.width=this.canvas.clientWidth||800;
+    this.canvas.height=this.canvas.clientHeight||600;
     this.W=this.canvas.width;this.H=this.canvas.height;
     this.GROUND=this.H-60;
   }
@@ -371,7 +406,10 @@ class DinoGame{
     for(let i=0;i<3;i++) this.clouds.push({x:100+Math.random()*this.W,y:30+Math.random()*80,w:46,s:0.5+Math.random()*0.5});
   }
   start(){this.reset();this.loop();}
-  stop(){if(this.frameId) cancelAnimationFrame(this.frameId);}
+  stop(){
+    if(this.frameId) cancelAnimationFrame(this.frameId);
+    window.removeEventListener("resize",this._onResize);
+  }
   loop(){
     if(!gameRunning) return;
     this.update();this.draw();
@@ -501,7 +539,6 @@ class DinoGame{
     if(this.gameOver){
       ctx.fillStyle=FG;ctx.font="bold 24px 'Courier New',monospace";ctx.textAlign="center";
       ctx.fillText("G A M E   O V E R",W/2,H/2-30);
-      // Restart icon (circular arrow)
       const rx=W/2,ry=H/2+10;
       ctx.strokeStyle=FG;ctx.lineWidth=3;
       ctx.beginPath();ctx.arc(rx,ry,16,0,Math.PI*1.5);ctx.stroke();
@@ -510,7 +547,6 @@ class DinoGame{
       ctx.fillText("ENTER to restart | ESC to close",W/2,H/2+50);
       ctx.textAlign="left";
     }
-    // Waiting to start
     if(!this.started&&!this.gameOver){
       ctx.fillStyle=FG;ctx.font="16px 'Courier New',monospace";ctx.textAlign="center";
       ctx.fillText("Press SPACE or UP to start",W/2,H/2);
@@ -524,9 +560,12 @@ class SubwayGame{
   constructor(canvas){
     this.canvas=canvas;this.ctx=canvas.getContext("2d");
     this.resize();this.frameId=null;this.reset();
+    this._onResize=()=>{this.resize();};
+    window.addEventListener("resize",this._onResize);
   }
   resize(){
-    this.canvas.width=this.canvas.clientWidth;this.canvas.height=this.canvas.clientHeight;
+    this.canvas.width=this.canvas.clientWidth||800;
+    this.canvas.height=this.canvas.clientHeight||600;
     this.W=this.canvas.width;this.H=this.canvas.height;
     this.LW=this.W/3;
     this.CENTERS=[this.LW/2, this.LW*1.5, this.LW*2.5];
@@ -538,7 +577,10 @@ class SubwayGame{
     this.gameOver=false;this.groundOff=0;this.frame=0;
   }
   start(){this.reset();this.loop();}
-  stop(){if(this.frameId) cancelAnimationFrame(this.frameId);}
+  stop(){
+    if(this.frameId) cancelAnimationFrame(this.frameId);
+    window.removeEventListener("resize",this._onResize);
+  }
   loop(){
     if(!gameRunning) return;
     this.update();this.draw();
@@ -556,12 +598,9 @@ class SubwayGame{
     }
     this.frame++;this.score++;this.speed=5+this.score*0.001;
     this.groundOff=(this.groundOff+this.speed)%40;
-    // Smooth lane
     this.px+=(this.CENTERS[this.lane]-this.px)*0.25;
-    // Jump
     if(this.jumping){this.py+=this.vy;this.vy+=0.8;if(this.py>=this.H-140){this.py=this.H-140;this.jumping=false;this.vy=0;}}
     if(this.sliding){this.slideTmr--;if(this.slideTmr<=0)this.sliding=false;}
-    // Spawn
     this.spawnTmr++;
     if(this.spawnTmr>=Math.max(35,70-this.speed*3)){
       this.spawnTmr=0;
@@ -576,7 +615,6 @@ class SubwayGame{
     }
     this.obstacles.forEach(o=>{o.y+=this.speed;});
     this.obstacles=this.obstacles.filter(o=>o.y<this.H+20);
-    // Collision
     const pw=50,ph=this.sliding?30:70;
     const prx=this.px-pw/2,pry=(this.sliding?this.py+40:this.py);
     for(const o of this.obstacles){
@@ -591,12 +629,9 @@ class SubwayGame{
   draw(){
     const ctx=this.ctx,W=this.W,H=this.H,LW=this.LW;
     ctx.fillStyle="#23192d";ctx.fillRect(0,0,W,H);
-    // Lanes
     for(let i=0;i<3;i++){ctx.fillStyle=i%2===0?"#372d42":"#2d253a";ctx.fillRect(i*LW,0,LW,H);}
-    // Lane dashes
     ctx.strokeStyle="#6e5590";ctx.lineWidth=3;
     for(let i=1;i<3;i++){const x=i*LW;for(let y=-40+(this.groundOff%40);y<H;y+=40){ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x,y+20);ctx.stroke();}}
-    // Obstacles
     this.obstacles.forEach(o=>{
       const r={x:o.x-o.w/2,y:o.y,w:o.w,h:o.h};
       if(o.type==="barrier"){
@@ -615,7 +650,6 @@ class SubwayGame{
         ctx.strokeStyle="#c878ff";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(r.x,r.y,r.w,r.h,8);ctx.stroke();
       }
     });
-    // Player
     const cx=this.px,py=this.py;
     if(this.sliding){
       ctx.fillStyle="#00aae0";ctx.beginPath();ctx.roundRect(cx-28,py+40,56,30,8);ctx.fill();
@@ -627,15 +661,12 @@ class SubwayGame{
       ctx.beginPath();ctx.roundRect(cx-25,py+22,50,48,10);ctx.fill();
       ctx.fillStyle="#ff50b4";ctx.fillRect(cx-21,py+38,42,8);
       ctx.strokeStyle="#ff50b4";ctx.lineWidth=2;ctx.beginPath();ctx.roundRect(cx-25,py+22,50,48,10);ctx.stroke();
-      // Head
       ctx.fillStyle="#00e6ff";ctx.beginPath();ctx.arc(cx,py+14,16,0,Math.PI*2);ctx.fill();
       ctx.strokeStyle="#ff50b4";ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,py+14,16,0,Math.PI*2);ctx.stroke();
       ctx.fillStyle="#ff50b4";ctx.beginPath();ctx.roundRect(cx-14,py,28,12,5);ctx.fill();
-      // Eyes
       ctx.fillStyle="#fff";ctx.beginPath();ctx.arc(cx-5,py+12,4,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+5,py+12,4,0,Math.PI*2);ctx.fill();
       ctx.fillStyle="#1a1a1a";ctx.beginPath();ctx.arc(cx-4,py+12,2,0,Math.PI*2);ctx.fill();ctx.beginPath();ctx.arc(cx+6,py+12,2,0,Math.PI*2);ctx.fill();
     }
-    // HUD
     ctx.fillStyle="#ffdc32";ctx.font="bold 20px -apple-system,Segoe UI,sans-serif";ctx.textAlign="left";
     ctx.fillText(`Score: ${this.score}`,10,28);
     ctx.fillStyle="#a0a0a8";ctx.font="14px -apple-system,Segoe UI,sans-serif";ctx.fillText(`Speed: ${this.speed.toFixed(1)}`,10,48);
