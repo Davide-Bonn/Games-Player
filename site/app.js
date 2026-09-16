@@ -129,10 +129,14 @@ function onHandResults(results){
 }
 
 function onFaceResults(results){
+  // Draw overlay on tutorial or game canvas
+  drawFaceOverlay(results);
+
   if(!results.multiFaceLandmarks||!results.multiFaceLandmarks.length) return;
   const lm = results.multiFaceLandmarks[0];
-  const leftGap=lm[145].y-lm[159].y;
-  const rightGap=lm[373].y-lm[386].y;
+  // Swapped: camera is mirrored, so landmark left eye = user's right visually
+  const leftGap=lm[373].y-lm[386].y;
+  const rightGap=lm[145].y-lm[159].y;
   const leftClosed=leftGap<0.004, rightClosed=rightGap<0.004;
 
   if(leftClosed&&rightClosed) emitGesture("both_blink");
@@ -143,6 +147,84 @@ function onFaceResults(results){
   if(mouthOpen) emitGesture("mouth_open");
   if(mouthWasOpen&&!mouthOpen) emitGesture("mouth_close");
   mouthWasOpen=mouthOpen;
+}
+
+// ── Face Overlay Drawing ──
+function drawFaceOverlay(results){
+  const overlay=document.getElementById("tut-overlay");
+  if(!overlay) return;
+  const ctx=overlay.getContext("2d");
+  const video=overlay.parentElement?.querySelector("video");
+  if(!video) return;
+  overlay.width=video.videoWidth||overlay.clientWidth;
+  overlay.height=video.videoHeight||overlay.clientHeight;
+  ctx.clearRect(0,0,overlay.width,overlay.height);
+
+  if(!results.multiFaceLandmarks||!results.multiFaceLandmarks.length) return;
+  const lm=results.multiFaceLandmarks[0];
+  const w=overlay.width, h=overlay.height;
+
+  // Eye landmarks (swapped for mirror)
+  const leftGap=lm[373].y-lm[386].y;
+  const rightGap=lm[145].y-lm[159].y;
+  const leftClosed=leftGap<0.004, rightClosed=rightGap<0.004;
+  const mouthGap=Math.abs(lm[13].y-lm[14].y);
+  const mouthOpen=mouthGap>0.03;
+
+  // Left eye contour (landmarks 362-373 area)
+  const leftEyePts=[362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398];
+  // Right eye contour (landmarks 33-133 area)
+  const rightEyePts=[33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246];
+  // Mouth contour
+  const mouthPts=[61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185];
+
+  function drawContour(pts, closed, glow){
+    if(pts.length<2) return;
+    ctx.beginPath();
+    ctx.moveTo(lm[pts[0]].x*w, lm[pts[0]].y*h);
+    for(let i=1;i<pts.length;i++) ctx.lineTo(lm[pts[i]].x*w, lm[pts[i]].y*h);
+    if(closed) ctx.closePath();
+    if(glow){
+      ctx.strokeStyle="#00e5ff";
+      ctx.shadowColor="#00e5ff";
+      ctx.shadowBlur=12;
+      ctx.lineWidth=2.5;
+    } else {
+      ctx.strokeStyle="rgba(255,255,255,0.4)";
+      ctx.shadowColor="transparent";
+      ctx.shadowBlur=0;
+      ctx.lineWidth=1.5;
+    }
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
+  // Draw left eye
+  drawContour(leftEyePts, true, leftClosed);
+  // Draw right eye
+  drawContour(rightEyePts, true, rightClosed);
+  // Draw mouth
+  drawContour(mouthPts, true, mouthOpen);
+
+  // Glow dot on closed eyes
+  if(leftClosed){
+    const cx=lm[373].x*w, cy=lm[373].y*h;
+    ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=16;
+    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+  if(rightClosed){
+    const cx=lm[145].x*w, cy=lm[145].y*h;
+    ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=16;
+    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
+  if(mouthOpen){
+    const cx=lm[13].x*w, cy=lm[13].y*h;
+    ctx.fillStyle="#ff2d78";ctx.shadowColor="#ff2d78";ctx.shadowBlur=16;
+    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+    ctx.shadowBlur=0;
+  }
 }
 
 // ── UI Navigation ──
@@ -401,7 +483,7 @@ class DinoGame{
   }
   reset(){
     this.dino={x:60,y:this.GROUND,w:44,h:48,vy:0,jumping:false,ducking:false,frame:0};
-    this.obstacles=[];this.clouds=[];this.speed=6;this.score=0;
+    this.obstacles=[];this.clouds=[];this.speed=8;this.score=0;
     this.spawnTimer=0;this.gameOver=false;this.groundOff=0;this.started=false;
     for(let i=0;i<3;i++) this.clouds.push({x:100+Math.random()*this.W,y:30+Math.random()*80,w:46,s:0.5+Math.random()*0.5});
   }
@@ -428,11 +510,11 @@ class DinoGame{
     }
     if(!this.started) return;
     this.dino.frame++;
-    this.score++;this.speed=6+this.score*0.002;
+    this.score++;this.speed=8+this.score*0.003;
     this.groundOff=(this.groundOff+this.speed)%20;
     if(this.dino.jumping){this.dino.y+=this.dino.vy;this.dino.vy+=0.7;if(this.dino.y>=this.GROUND){this.dino.y=this.GROUND;this.dino.jumping=false;this.dino.vy=0;}}
     this.spawnTimer++;
-    if(this.spawnTimer>=Math.max(40,80-this.speed*2)){
+    if(this.spawnTimer>=Math.max(30,60-this.speed*2)){
       this.spawnTimer=0;
       if(Math.random()<0.25&&this.speed>8){
         const birdY=this.GROUND-[25,50,75][Math.floor(Math.random()*3)];

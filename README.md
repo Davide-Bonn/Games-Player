@@ -2,6 +2,8 @@
 
 Camera-controlled gaming platform using hand gestures and facial expressions. Play classic games with your webcam or keyboard.
 
+**[Try it live in your browser](https://games-player-app.vercel.app)** -- no install needed, just a webcam and a modern browser.
+
 ## Dino Runner
 
 Chrome T-Rex style side-scroller. Jump over cacti and dodge pterodactyls.
@@ -34,24 +36,21 @@ Customize which gestures map to which game actions. Supports hand pinches, eye b
 
 Keyboard controls: Arrow keys or WASD, Space to jump.
 
-## Setup
+## Try It Out
+
+### In the browser (recommended)
+
+Visit **[games-player-app.vercel.app](https://games-player-app.vercel.app)** to play instantly. Allow camera access when prompted to use gesture controls, or play with keyboard only.
+
+### Desktop version
 
 ```bash
 pip install -r requirements.txt
 python main.py
 ```
 
-## Web Version
-
-The web version runs on Vercel or any static host. Camera works client-side via MediaPipe JS over HTTPS.
-
-```bash
-cd web
-python -m http.server 8000
-```
-
 ## Requirements
 
-- Python 3.8+
 - Webcam (optional, keyboard always works)
-- opencv-python, mediapipe, pygame
+- Desktop: Python 3.8+, opencv-python, mediapipe, pygame
+- Web: Any modern browser with HTTPS (Chrome, Firefox, Edge, Safari)
