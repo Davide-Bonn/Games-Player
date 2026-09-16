@@ -117,113 +117,199 @@ async function detectLoop(videoEl, loopId){
   }
 }
 
+// Store latest results for overlay drawing
+let lastHandResults=null;
+let lastFaceResults=null;
+
 function onHandResults(results){
+  lastHandResults=results;
+  drawOverlay();
   if(!results.multiHandLandmarks||!results.multiHandLandmarks.length) return;
   const lm = results.multiHandLandmarks[0];
+  // Thumb tip (4) to index tip (8) and middle tip (12)
+  // Use full 3D distance including z for reliable pinch
   const thumb=lm[4], index=lm[8], middle=lm[12];
-  // Use distance (not just Y) for more reliable pinch detection
-  const idist=Math.sqrt((thumb.x-index.x)**2+(thumb.y-index.y)**2);
-  const mdist=Math.sqrt((thumb.x-middle.x)**2+(thumb.y-middle.y)**2);
-  if(idist<0.06) emitGesture("pinch_index");
-  if(mdist<0.06) emitGesture("pinch_middle");
+  const idist=Math.hypot(thumb.x-index.x, thumb.y-index.y, (thumb.z||0)-(index.z||0));
+  const mdist=Math.hypot(thumb.x-middle.x, thumb.y-middle.y, (thumb.z||0)-(middle.z||0));
+  if(idist<0.09) emitGesture("pinch_index");
+  if(mdist<0.09) emitGesture("pinch_middle");
 }
 
 function onFaceResults(results){
-  // Draw overlay on tutorial or game canvas
-  drawFaceOverlay(results);
-
+  lastFaceResults=results;
+  drawOverlay();
   if(!results.multiFaceLandmarks||!results.multiFaceLandmarks.length) return;
   const lm = results.multiFaceLandmarks[0];
-  // Swapped: camera is mirrored, so landmark left eye = user's right visually
-  const leftGap=lm[373].y-lm[386].y;
-  const rightGap=lm[145].y-lm[159].y;
-  const leftClosed=leftGap<0.004, rightClosed=rightGap<0.004;
 
-  if(leftClosed&&rightClosed) emitGesture("both_blink");
-  else{if(leftClosed) emitGesture("left_blink"); if(rightClosed) emitGesture("right_blink");}
+  // MediaPipe face mesh: landmarks are from SUBJECT's perspective
+  // 159=left upper lid, 145=left lower lid (subject's left eye)
+  // 386=right upper lid, 373=right lower lid (subject's right eye)
+  // In mirrored camera: subject's left appears on screen-right
+  // We map subject's left eye → "left_blink" action (user closes their left eye)
+  const leftEAR = Math.abs(lm[159].y - lm[145].y);   // subject's left eye
+  const rightEAR = Math.abs(lm[386].y - lm[373].y);   // subject's right eye
+  const leftClosed = leftEAR < 0.008;
+  const rightClosed = rightEAR < 0.008;
 
-  const mouthGap=Math.abs(lm[13].y-lm[14].y);
-  const mouthOpen=mouthGap>0.03;
+  if(leftClosed && rightClosed) emitGesture("both_blink");
+  else {
+    if(leftClosed) emitGesture("left_blink");
+    if(rightClosed) emitGesture("right_blink");
+  }
+
+  // Mouth: upper inner lip (13) to lower inner lip (14)
+  const mouthGap = Math.abs(lm[13].y - lm[14].y);
+  const mouthOpen = mouthGap > 0.02;
   if(mouthOpen) emitGesture("mouth_open");
-  if(mouthWasOpen&&!mouthOpen) emitGesture("mouth_close");
-  mouthWasOpen=mouthOpen;
+  if(mouthWasOpen && !mouthOpen) emitGesture("mouth_close");
+  mouthWasOpen = mouthOpen;
 }
 
-// ── Face Overlay Drawing ──
-function drawFaceOverlay(results){
-  const overlay=document.getElementById("tut-overlay");
-  if(!overlay) return;
-  const ctx=overlay.getContext("2d");
-  const video=overlay.parentElement?.querySelector("video");
+// ── Overlay Drawing (face + hands) ──
+function drawOverlay(){
+  const overlay = document.getElementById("tut-overlay");
+  if(!overlay || !overlay.parentElement) return;
+  const ctx = overlay.getContext("2d");
+  const video = overlay.parentElement.querySelector("video");
   if(!video) return;
-  overlay.width=video.videoWidth||overlay.clientWidth;
-  overlay.height=video.videoHeight||overlay.clientHeight;
-  ctx.clearRect(0,0,overlay.width,overlay.height);
+  const vw = video.videoWidth || overlay.clientWidth;
+  const vh = video.videoHeight || overlay.clientHeight;
+  if(vw===0||vh===0) return;
+  overlay.width = vw;
+  overlay.height = vh;
+  ctx.clearRect(0, 0, vw, vh);
 
-  if(!results.multiFaceLandmarks||!results.multiFaceLandmarks.length) return;
-  const lm=results.multiFaceLandmarks[0];
-  const w=overlay.width, h=overlay.height;
+  // ── Draw hand landmarks ──
+  if(lastHandResults && lastHandResults.multiHandLandmarks && lastHandResults.multiHandLandmarks.length){
+    const lm = lastHandResults.multiHandLandmarks[0];
+    const thumb=lm[4], index=lm[8], middle=lm[12];
+    const idist=Math.hypot(thumb.x-index.x, thumb.y-index.y);
+    const mdist=Math.hypot(thumb.x-middle.x, thumb.y-middle.y);
+    const iPinch = idist < 0.09;
+    const mPinch = mdist < 0.09;
 
-  // Eye landmarks (swapped for mirror)
-  const leftGap=lm[373].y-lm[386].y;
-  const rightGap=lm[145].y-lm[159].y;
-  const leftClosed=leftGap<0.004, rightClosed=rightGap<0.004;
-  const mouthGap=Math.abs(lm[13].y-lm[14].y);
-  const mouthOpen=mouthGap>0.03;
+    // Draw hand skeleton
+    const connections=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+    ctx.strokeStyle="rgba(255,255,255,0.3)";
+    ctx.lineWidth=1.5;
+    connections.forEach(([a,b])=>{
+      ctx.beginPath();
+      ctx.moveTo(lm[a].x*vw, lm[a].y*vh);
+      ctx.lineTo(lm[b].x*vw, lm[b].y*vh);
+      ctx.stroke();
+    });
 
-  // Left eye contour (landmarks 362-373 area)
-  const leftEyePts=[362,382,381,380,374,373,390,249,263,466,388,387,386,385,384,398];
-  // Right eye contour (landmarks 33-133 area)
-  const rightEyePts=[33,7,163,144,145,153,154,155,133,173,157,158,159,160,161,246];
-  // Mouth contour
-  const mouthPts=[61,146,91,181,84,17,314,405,321,375,291,409,270,269,267,0,37,39,40,185];
+    // Draw all landmark dots
+    lm.forEach((p,i)=>{
+      const isPinchPoint = (i===4||i===8||i===12);
+      ctx.fillStyle = isPinchPoint ? "#00e5ff" : "rgba(255,255,255,0.5)";
+      ctx.beginPath();
+      ctx.arc(p.x*vw, p.y*vh, isPinchPoint?5:2.5, 0, Math.PI*2);
+      ctx.fill();
+    });
 
-  function drawContour(pts, closed, glow){
-    if(pts.length<2) return;
-    ctx.beginPath();
-    ctx.moveTo(lm[pts[0]].x*w, lm[pts[0]].y*h);
-    for(let i=1;i<pts.length;i++) ctx.lineTo(lm[pts[i]].x*w, lm[pts[i]].y*h);
-    if(closed) ctx.closePath();
-    if(glow){
-      ctx.strokeStyle="#00e5ff";
-      ctx.shadowColor="#00e5ff";
-      ctx.shadowBlur=12;
-      ctx.lineWidth=2.5;
-    } else {
-      ctx.strokeStyle="rgba(255,255,255,0.4)";
-      ctx.shadowColor="transparent";
+    // Highlight pinch connections
+    if(iPinch){
+      ctx.strokeStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=14;ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(thumb.x*vw,thumb.y*vh);ctx.lineTo(index.x*vw,index.y*vh);ctx.stroke();
       ctx.shadowBlur=0;
-      ctx.lineWidth=1.5;
+      // Glow circle at pinch point
+      const mx=(thumb.x+index.x)/2*vw, my=(thumb.y+index.y)/2*vh;
+      ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=20;
+      ctx.beginPath();ctx.arc(mx,my,8,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
     }
-    ctx.stroke();
-    ctx.shadowBlur=0;
+    if(mPinch){
+      ctx.strokeStyle="#ff2d78";ctx.shadowColor="#ff2d78";ctx.shadowBlur=14;ctx.lineWidth=3;
+      ctx.beginPath();ctx.moveTo(thumb.x*vw,thumb.y*vh);ctx.lineTo(middle.x*vw,middle.y*vh);ctx.stroke();
+      ctx.shadowBlur=0;
+      const mx=(thumb.x+middle.x)/2*vw, my=(thumb.y+middle.y)/2*vh;
+      ctx.fillStyle="#ff2d78";ctx.shadowColor="#ff2d78";ctx.shadowBlur=20;
+      ctx.beginPath();ctx.arc(mx,my,8,0,Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+    }
   }
 
-  // Draw left eye
-  drawContour(leftEyePts, true, leftClosed);
-  // Draw right eye
-  drawContour(rightEyePts, true, rightClosed);
-  // Draw mouth
-  drawContour(mouthPts, true, mouthOpen);
+  // ── Draw face landmarks ──
+  if(lastFaceResults && lastFaceResults.multiFaceLandmarks && lastFaceResults.multiFaceLandmarks.length){
+    const lm = lastFaceResults.multiFaceLandmarks[0];
 
-  // Glow dot on closed eyes
-  if(leftClosed){
-    const cx=lm[373].x*w, cy=lm[373].y*h;
-    ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=16;
-    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
+    const leftEAR = Math.abs(lm[159].y - lm[145].y);
+    const rightEAR = Math.abs(lm[386].y - lm[373].y);
+    const leftClosed = leftEAR < 0.008;
+    const rightClosed = rightEAR < 0.008;
+    const mouthGap = Math.abs(lm[13].y - lm[14].y);
+    const mouthOpen = mouthGap > 0.02;
+
+    // Left eye (subject's left = screen right in mirror)
+    const leftEyeTop = [246,161,160,159,158,157,173];
+    const leftEyeBot = [33,7,163,144,145,153,154,155,133];
+    // Right eye (subject's right = screen left in mirror)
+    const rightEyeTop = [466,388,387,386,385,384,398];
+    const rightEyeBot = [263,249,390,373,374,380,381,382,362];
+    // Outer mouth
+    const mouthOuter = [61,185,40,39,37,0,267,269,270,409,291,375,321,405,314,17,84,181,91,146];
+
+    function drawShape(pts, glow, color){
+      if(pts.length<2) return;
+      ctx.beginPath();
+      ctx.moveTo(lm[pts[0]].x*vw, lm[pts[0]].y*vh);
+      for(let i=1;i<pts.length;i++) ctx.lineTo(lm[pts[i]].x*vw, lm[pts[i]].y*vh);
+      ctx.closePath();
+      if(glow){
+        ctx.strokeStyle=color||"#00e5ff";
+        ctx.shadowColor=color||"#00e5ff";
+        ctx.shadowBlur=14;
+        ctx.lineWidth=2.5;
+      } else {
+        ctx.strokeStyle="rgba(255,255,255,0.35)";
+        ctx.shadowBlur=0;
+        ctx.lineWidth=1.5;
+      }
+      ctx.stroke();
+      ctx.shadowBlur=0;
+    }
+
+    // Draw eyes
+    drawShape(leftEyeTop.concat(leftEyeBot.slice().reverse()), leftClosed, "#00e5ff");
+    drawShape(rightEyeTop.concat(rightEyeBot.slice().reverse()), rightClosed, "#00e5ff");
+    // Draw mouth
+    drawShape(mouthOuter, mouthOpen, "#ff2d78");
+
+    // Draw detection landmark dots (the actual points used for measurement)
+    function drawDot(idx, color, sz){
+      ctx.fillStyle=color;
+      ctx.shadowColor=color;ctx.shadowBlur=10;
+      ctx.beginPath();ctx.arc(lm[idx].x*vw, lm[idx].y*vh, sz||4, 0, Math.PI*2);ctx.fill();
+      ctx.shadowBlur=0;
+    }
+
+    // Eye measurement points
+    const eyeColor = "#00e5ff";
+    drawDot(159, leftClosed?"#00ff88":eyeColor, leftClosed?6:3); // left upper
+    drawDot(145, leftClosed?"#00ff88":eyeColor, leftClosed?6:3); // left lower
+    drawDot(386, rightClosed?"#00ff88":eyeColor, rightClosed?6:3); // right upper
+    drawDot(373, rightClosed?"#00ff88":eyeColor, rightClosed?6:3); // right lower
+
+    // Mouth measurement points
+    drawDot(13, mouthOpen?"#ff2d78":"rgba(255,255,255,0.5)", mouthOpen?6:3);
+    drawDot(14, mouthOpen?"#ff2d78":"rgba(255,255,255,0.5)", mouthOpen?6:3);
+
+    // Labels when detected
+    ctx.font="bold 12px 'IBM Plex Mono',monospace";
     ctx.shadowBlur=0;
-  }
-  if(rightClosed){
-    const cx=lm[145].x*w, cy=lm[145].y*h;
-    ctx.fillStyle="#00e5ff";ctx.shadowColor="#00e5ff";ctx.shadowBlur=16;
-    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
-  }
-  if(mouthOpen){
-    const cx=lm[13].x*w, cy=lm[13].y*h;
-    ctx.fillStyle="#ff2d78";ctx.shadowColor="#ff2d78";ctx.shadowBlur=16;
-    ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fill();
-    ctx.shadowBlur=0;
+    if(leftClosed){
+      ctx.fillStyle="#00ff88";
+      ctx.fillText("BLINK", lm[159].x*vw-15, lm[159].y*vh-12);
+    }
+    if(rightClosed){
+      ctx.fillStyle="#00ff88";
+      ctx.fillText("BLINK", lm[386].x*vw-15, lm[386].y*vh-12);
+    }
+    if(mouthOpen){
+      ctx.fillStyle="#ff2d78";
+      ctx.fillText("OPEN", lm[13].x*vw-12, lm[14].y*vh+20);
+    }
   }
 }
 
